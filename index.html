@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เซ็นอนุมัติเอกสาร</title>
+<style>
+body{font-family:sans-serif;max-width:500px;margin:40px auto;padding:20px}
+canvas{border:2px solid #333;border-radius:8px;touch-action:none;width:100%;cursor:crosshair;background:white}
+button{padding:12px 24px;margin:8px;border-radius:6px;font-size:16px;cursor:pointer}
+#submit-btn{background:#1a73e8;color:white;border:none}
+#clear-btn{background:#f5f5f5;color:#333;border:1px solid #ccc}
+#status{margin-top:16px;font-weight:bold}
+</style>
+</head>
+<body>
+<h2 id="title">เซ็นอนุมัติเอกสาร</h2>
+<p id="subtitle">วาดลายเซ็นในกล่องด้านล่าง</p>
+<canvas id="sig-canvas" width="480" height="200"></canvas>
+<br>
+<button id="clear-btn" onclick="clearCanvas()">ล้าง</button>
+<button id="submit-btn" onclick="submitSignature()">ยืนยันลายเซ็น</button>
+<div id="status"></div>
+<script>
+const params=new URLSearchParams(window.location.search);
+const jobId=params.get('jobId')||'';
+const step=params.get('step')||'estimate';
+const webhookUrl=params.get('webhook')||'';
+document.getElementById('title').textContent=step==='md'?'MD: เซ็นอนุมัติ':'Estimate: เซ็นอนุมัติ';
+document.getElementById('subtitle').textContent='งาน: '+jobId;
+const canvas=document.getElementById('sig-canvas');
+const ctx=canvas.getContext('2d');
+let drawing=false,hasDrawn=false;
+function getPos(e){const r=canvas.getBoundingClientRect(),sx=canvas.width/r.width,sy=canvas.height/r.height;if(e.touches)return{x:(e.touches[0].clientX-r.left)*sx,y:(e.touches[0].clientY-r.top)*sy};return{x:(e.clientX-r.left)*sx,y:(e.clientY-r.top)*sy}}
+canvas.addEventListener('mousedown',e=>{drawing=true;ctx.beginPath();const p=getPos(e);ctx.moveTo(p.x,p.y)});
+canvas.addEventListener('mousemove',e=>{if(!drawing)return;hasDrawn=true;const p=getPos(e);ctx.lineWidth=2.5;ctx.lineCap='round';ctx.strokeStyle='#000';ctx.lineTo(p.x,p.y);ctx.stroke()});
+canvas.addEventListener('mouseup',()=>drawing=false);
+canvas.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;ctx.beginPath();const p=getPos(e);ctx.moveTo(p.x,p.y)},{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;hasDrawn=true;const p=getPos(e);ctx.lineWidth=2.5;ctx.lineCap='round';ctx.strokeStyle='#000';ctx.lineTo(p.x,p.y);ctx.stroke()},{passive:false});
+canvas.addEventListener('touchend',()=>drawing=false);
+function clearCanvas(){ctx.clearRect(0,0,canvas.width,canvas.height);hasDrawn=false}
+async function submitSignature(){
+if(!hasDrawn){alert('กรุณาวาดลายเซ็นก่อน');return}
+if(!jobId){alert('ไม่พบ jobId');return}
+if(!webhookUrl){alert('ไม่พบ webhook URL');return}
+const sig=canvas.toDataURL('image/png');
+document.getElementById('status').textContent='กำลังบันทึก...';
+document.getElementById('submit-btn').disabled=true;
+try{const res=await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId,step,signatureBase64:sig})});
+if(res.ok){document.getElementById('status').textContent='✅ บันทึกลายเซ็นสำเร็จ!'}
+else{throw new Error('HTTP '+res.status)}}
+catch(err){document.getElementById('status').textContent='❌ เกิดข้อผิดพลาด: '+err.message;document.getElementById('submit-btn').disabled=false}}
+</script>
+</body>
+</html>
