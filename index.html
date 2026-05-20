@@ -5,51 +5,117 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>เซ็นอนุมัติเอกสาร</title>
 <style>
-body{font-family:sans-serif;max-width:500px;margin:40px auto;padding:20px}
+body{font-family:sans-serif;max-width:520px;margin:30px auto;padding:20px;background:#f9f9f9}
+.card{background:white;padding:20px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);margin-bottom:16px}
+h2{margin:0 0 4px;font-size:18px}
+p{margin:4px 0 12px;color:#666;font-size:14px}
+label{display:block;margin:8px 0;font-size:15px;cursor:pointer}
+input[type=radio],input[type=checkbox]{margin-right:8px;width:16px;height:16px}
+textarea{width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;resize:vertical;box-sizing:border-box}
 canvas{border:2px solid #333;border-radius:8px;touch-action:none;width:100%;cursor:crosshair;background:white}
-button{padding:12px 24px;margin:8px;border-radius:6px;font-size:16px;cursor:pointer}
-#submit-btn{background:#1a73e8;color:white;border:none}
-#clear-btn{background:#f5f5f5;color:#333;border:1px solid #ccc}
-#status{margin-top:16px;font-weight:bold}
+.btn{padding:12px 24px;margin:6px 4px;border-radius:6px;font-size:16px;cursor:pointer;border:none}
+.btn-primary{background:#1a73e8;color:white}
+.btn-secondary{background:#f5f5f5;color:#333;border:1px solid #ccc}
+#status{margin-top:12px;font-weight:bold;font-size:15px}
+.section-title{font-weight:bold;margin-bottom:8px;color:#333}
 </style>
 </head>
 <body>
-<h2 id="title">เซ็นอนุมัติเอกสาร</h2>
-<p id="subtitle">วาดลายเซ็นในกล่องด้านล่าง</p>
-<canvas id="sig-canvas" width="480" height="200"></canvas>
-<br>
-<button id="clear-btn" onclick="clearCanvas()">ล้าง</button>
-<button id="submit-btn" onclick="submitSignature()">ยืนยันลายเซ็น</button>
-<div id="status"></div>
+<div class="card">
+  <h2 id="title">เซ็นอนุมัติเอกสาร</h2>
+  <p id="subtitle">กรุณากรอกข้อมูลให้ครบก่อนกดยืนยัน</p>
+</div>
+
+<div class="card" id="approval-section">
+  <div class="section-title">ผลการพิจารณา</div>
+  <label><input type="radio" name="approval" value="อนุมัติ"> อนุมัติ</label>
+  <label><input type="radio" name="approval" value="ไม่อนุมัติ"> ไม่อนุมัติ</label>
+  <label><input type="radio" name="approval" value="อนุมัติแบบมีเงื่อนไข"> อนุมัติแบบมีเงื่อนไข (โปรดระบุ)</label>
+  <br>
+  <div class="section-title">ความเห็น / เงื่อนไข</div>
+  <textarea id="comment" rows="3" placeholder="ระบุความเห็นหรือเงื่อนไข (ถ้ามี)"></textarea>
+</div>
+
+<div class="card">
+  <div class="section-title">ลายเซ็น</div>
+  <canvas id="sig-canvas" width="480" height="180"></canvas>
+  <br>
+  <button class="btn btn-secondary" onclick="clearCanvas()">ล้างลายเซ็น</button>
+</div>
+
+<div class="card">
+  <button class="btn btn-primary" onclick="submitSignature()">ยืนยันลายเซ็น</button>
+  <div id="status"></div>
+</div>
+
 <script>
-const params=new URLSearchParams(window.location.search);
-const jobId=params.get('jobId')||'';
-const step=params.get('step')||'estimate';
-const webhookUrl=params.get('webhook')||'';
-document.getElementById('title').textContent=step==='md'?'MD: เซ็นอนุมัติ':'Estimate: เซ็นอนุมัติ';
-document.getElementById('subtitle').textContent='งาน: '+jobId;
-const canvas=document.getElementById('sig-canvas');
-const ctx=canvas.getContext('2d');
-let drawing=false,hasDrawn=false;
-function getPos(e){const r=canvas.getBoundingClientRect(),sx=canvas.width/r.width,sy=canvas.height/r.height;if(e.touches)return{x:(e.touches[0].clientX-r.left)*sx,y:(e.touches[0].clientY-r.top)*sy};return{x:(e.clientX-r.left)*sx,y:(e.clientY-r.top)*sy}}
-canvas.addEventListener('mousedown',e=>{drawing=true;ctx.beginPath();const p=getPos(e);ctx.moveTo(p.x,p.y)});
-canvas.addEventListener('mousemove',e=>{if(!drawing)return;hasDrawn=true;const p=getPos(e);ctx.lineWidth=2.5;ctx.lineCap='round';ctx.strokeStyle='#000';ctx.lineTo(p.x,p.y);ctx.stroke()});
-canvas.addEventListener('mouseup',()=>drawing=false);
-canvas.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;ctx.beginPath();const p=getPos(e);ctx.moveTo(p.x,p.y)},{passive:false});
-canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;hasDrawn=true;const p=getPos(e);ctx.lineWidth=2.5;ctx.lineCap='round';ctx.strokeStyle='#000';ctx.lineTo(p.x,p.y);ctx.stroke()},{passive:false});
-canvas.addEventListener('touchend',()=>drawing=false);
-function clearCanvas(){ctx.clearRect(0,0,canvas.width,canvas.height);hasDrawn=false}
-async function submitSignature(){
-if(!hasDrawn){alert('กรุณาวาดลายเซ็นก่อน');return}
-if(!jobId){alert('ไม่พบ jobId');return}
-if(!webhookUrl){alert('ไม่พบ webhook URL');return}
-const sig=canvas.toDataURL('image/png');
-document.getElementById('status').textContent='กำลังบันทึก...';
-document.getElementById('submit-btn').disabled=true;
-try{const res=await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId,step,signatureBase64:sig})});
-if(res.ok){document.getElementById('status').textContent='✅ บันทึกลายเซ็นสำเร็จ!'}
-else{throw new Error('HTTP '+res.status)}}
-catch(err){document.getElementById('status').textContent='❌ เกิดข้อผิดพลาด: '+err.message;document.getElementById('submit-btn').disabled=false}}
+const params = new URLSearchParams(window.location.search);
+const jobId = params.get('jobId') || '';
+const step = params.get('step') || 'estimate';
+const webhookUrl = params.get('webhook') || '';
+
+document.getElementById('title').textContent = step === 'md' ? 'MD: เซ็นอนุมัติเอกสาร' : 'Estimate: เซ็นอนุมัติเอกสาร';
+document.getElementById('subtitle').textContent = 'งาน: ' + jobId;
+
+if (step === 'md') {
+  document.getElementById('approval-section').style.display = 'none';
+}
+
+const canvas = document.getElementById('sig-canvas');
+const ctx = canvas.getContext('2d');
+let drawing = false, hasDrawn = false;
+
+function getPos(e) {
+  const r = canvas.getBoundingClientRect();
+  const sx = canvas.width / r.width, sy = canvas.height / r.height;
+  if (e.touches) return { x: (e.touches[0].clientX - r.left) * sx, y: (e.touches[0].clientY - r.top) * sy };
+  return { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
+}
+
+canvas.addEventListener('mousedown', e => { drawing = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); });
+canvas.addEventListener('mousemove', e => { if (!drawing) return; hasDrawn = true; const p = getPos(e); ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.strokeStyle = '#000'; ctx.lineTo(p.x, p.y); ctx.stroke(); });
+canvas.addEventListener('mouseup', () => drawing = false);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); }, { passive: false });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); if (!drawing) return; hasDrawn = true; const p = getPos(e); ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.strokeStyle = '#000'; ctx.lineTo(p.x, p.y); ctx.stroke(); }, { passive: false });
+canvas.addEventListener('touchend', () => drawing = false);
+
+function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); hasDrawn = false; }
+
+async function submitSignature() {
+  if (!hasDrawn) { alert('กรุณาวาดลายเซ็นก่อน'); return; }
+  if (!jobId) { alert('ไม่พบ jobId'); return; }
+  if (!webhookUrl) { alert('ไม่พบ webhook URL'); return; }
+
+  const approval = document.querySelector('input[name="approval"]:checked');
+  if (step === 'estimate' && !approval) { alert('กรุณาเลือกผลการพิจารณาก่อน'); return; }
+
+  const comment = document.getElementById('comment').value;
+  const signatureBase64 = canvas.toDataURL('image/png');
+  const approvalValue = approval ? approval.value : '';
+  const now = new Date();
+  const signedDate = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()+543}`;
+
+  document.getElementById('status').textContent = 'กำลังบันทึก...';
+  document.getElementById('status').style.color = '#666';
+
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobId, step, signatureBase64, approval: approvalValue, comment, signedDate })
+    });
+    if (res.ok) {
+      document.getElementById('status').textContent = '✅ บันทึกลายเซ็นสำเร็จ! ขอบคุณครับ';
+      document.getElementById('status').style.color = 'green';
+      document.querySelector('.btn-primary').disabled = true;
+    } else {
+      throw new Error('HTTP ' + res.status);
+    }
+  } catch (err) {
+    document.getElementById('status').textContent = '❌ เกิดข้อผิดพลาด: ' + err.message;
+    document.getElementById('status').style.color = 'red';
+  }
+}
 </script>
 </body>
 </html>
